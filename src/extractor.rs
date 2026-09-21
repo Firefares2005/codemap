@@ -10,6 +10,7 @@ pub struct Function {
     pub line: usize,
     pub body: String,
     pub calls: Vec<String>,
+    pub doc: String, // التعليق التوثيقي ///
 }
 
 impl Function {
@@ -28,6 +29,29 @@ fn is_ignored(path: &Path) -> bool {
             Some("target") | Some("tests") | Some("benches") | Some(".git")
         )
     })
+}
+
+/// يجمع أسطر /// التي تسبق الدالة
+fn leading_doc(code: &str, node: Node) -> String {
+    let mut lines = Vec::new();
+    let mut prev = node.prev_sibling();
+    while let Some(p) = prev {
+        if p.kind() == "line_comment" {
+            let t = code[p.byte_range()].trim();
+            if let Some(d) = t.strip_prefix("///") {
+                lines.push(d.trim().to_string());
+                prev = p.prev_sibling();
+                continue;
+            }
+        } else if p.kind() == "attribute_item" {
+            // تخطَّ #[inline] وما شابه
+            prev = p.prev_sibling();
+            continue;
+        }
+        break;
+    }
+    lines.reverse();
+    lines.join(" ")
 }
 
 pub fn scan_project(root: &Path) -> anyhow::Result<Vec<Function>> {
@@ -75,6 +99,7 @@ fn collect(node: Node, code: &str, path: &Path, owner: Option<&str>, out: &mut V
                 line: node.start_position().row + 1,
                 body: code[node.byte_range()].to_string(),
                 calls: calls.into_iter().collect(),
+                doc: leading_doc(code, node),
             });
         }
     }

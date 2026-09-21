@@ -32,12 +32,12 @@ impl Embedder {
     }
 }
 
-/// النص الذي يمثل الدالة: الاسم بكلمات منفصلة + بداية النص
+/// النص الذي يمثل الدالة: النوع + الاسم + التوثيق + بداية النص
 fn doc_text(f: &Function) -> String {
     let owner = f.owner.clone().unwrap_or_default();
     let name = f.name.replace('_', " ");
-    let body: String = f.body.chars().take(600).collect();
-    format!("{} {}\n{}", owner, name, body)
+    let body: String = f.body.chars().take(400).collect();
+    format!("{} {}. {}\n{}", owner, name, f.doc, body)
 }
 
 /// بصمة المشروع: إذا تغيّر أي كود تتغير البصمة ويُعاد بناء الفهرس
@@ -47,6 +47,7 @@ fn fingerprint(funcs: &[Function]) -> u64 {
         f.file.hash(&mut h);
         f.line.hash(&mut h);
         f.body.hash(&mut h);
+        f.doc.hash(&mut h);
     }
     h.finish()
 }
