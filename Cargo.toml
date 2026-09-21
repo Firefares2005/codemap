@@ -7,6 +7,7 @@ edition = "2024"
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
 fastembed = "4"
+serde_json = "1.0.151"
 tree-sitter = "0.27.0"
 tree-sitter-rust = "0.24.2"
 walkdir = "2.5.0"

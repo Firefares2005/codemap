@@ -344,6 +344,7 @@ dependencies = [
  "anyhow",
  "clap",
  "fastembed",
+ "serde_json",
  "tree-sitter",
  "tree-sitter-rust",
  "walkdir",

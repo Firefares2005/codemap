@@ -1,6 +1,7 @@
 mod embed;
 mod eval;
 mod extractor;
+mod mcp;
 mod search;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -20,7 +21,7 @@ enum Mode {
     Lexical,
     /// بحث بالمعنى فقط
     Semantic,
-    /// دمج الاثنين (الأفضل)
+    /// دمج الاثنين
     Hybrid,
 }
 
@@ -45,6 +46,8 @@ enum Cmd {
     },
     /// قياس جودة البحث على أسئلة معروفة
     Eval { path: PathBuf },
+    /// شغّل خادم MCP ليستخدمه Claude وغيره
+    Serve { path: PathBuf },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -114,6 +117,9 @@ fn main() -> anyhow::Result<()> {
             let mut emb = embed::Embedder::new()?;
             let vecs = embed::load_or_build(&path, &fns, &mut emb)?;
             eval::run(&fns, &vecs, &mut emb)?;
+        }
+        Cmd::Serve { path } => {
+            mcp::serve(&path)?;
         }
     }
     Ok(())
