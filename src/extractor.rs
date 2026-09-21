@@ -42,7 +42,9 @@ pub fn scan_project(root: &Path) -> anyhow::Result<Vec<Function>> {
             continue;
         }
         // تجاهل الملفات غير القابلة للقراءة بدل إيقاف البرنامج
-        let Ok(code) = std::fs::read_to_string(path) else { continue };
+        let Ok(code) = std::fs::read_to_string(path) else {
+            continue;
+        };
         if let Some(tree) = parser.parse(&code, None) {
             collect(tree.root_node(), &code, path, None, &mut result);
         }
@@ -84,28 +86,25 @@ fn collect(node: Node, code: &str, path: &Path, owner: Option<&str>, out: &mut V
 }
 
 fn find_calls(node: Node, code: &str, out: &mut BTreeSet<String>) {
-    match node.kind() {
-        // foo(...) أو Type::foo(...)
-        "call_expression" => {
-            if let Some(f) = node.child_by_field_name("function") {
-                let name = match f.kind() {
-                    "identifier" => Some(code[f.byte_range()].to_string()),
-                    "scoped_identifier" => f
-                        .child_by_field_name("name")
-                        .map(|n| code[n.byte_range()].to_string()),
-                    "field_expression" => f
-                        .child_by_field_name("field")
-                        .map(|n| code[n.byte_range()].to_string()),
-                    _ => None,
-                };
-                if let Some(n) = name {
-                    out.insert(n);
-                }
+    if node.kind() == "call_expression" {
+        if let Some(f) = node.child_by_field_name("function") {
+            let name = match f.kind() {
+                // foo(...)
+                "identifier" => Some(code[f.byte_range()].to_string()),
+                // Type::foo(...)
+                "scoped_identifier" => f
+                    .child_by_field_name("name")
+                    .map(|n| code[n.byte_range()].to_string()),
+                // obj.method(...)
+                "field_expression" => f
+                    .child_by_field_name("field")
+                    .map(|n| code[n.byte_range()].to_string()),
+                _ => None,
+            };
+            if let Some(n) = name {
+                out.insert(n);
             }
         }
-        // obj.method(...)
-        "method_call_expression" => {}
-        _ => {}
     }
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {

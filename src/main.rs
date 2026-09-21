@@ -1,10 +1,12 @@
 mod extractor;
+mod search;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::time::Instant;
 
 #[derive(Parser)]
+#[command(name = "codemap", about = "Local-first code search for Rust projects")]
 struct Args {
     #[command(subcommand)]
     cmd: Cmd,
@@ -16,6 +18,8 @@ enum Cmd {
     List { path: PathBuf },
     /// من يستدعي هذه الدالة؟
     Callers { path: PathBuf, name: String },
+    /// ابحث بجملة عادية
+    Ask { path: PathBuf, question: String },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -38,6 +42,23 @@ fn main() -> anyhow::Result<()> {
                 found += 1;
             }
             println!("\n🔎 {} دالة تستدعي `{}` ({:?})", found, name, start.elapsed());
+        }
+        Cmd::Ask { path, question } => {
+            let fns = extractor::scan_project(&path)?;
+            let hits = search::search(&fns, &question, 10);
+            if hits.is_empty() {
+                println!("لا توجد نتائج. جرّب كلمات أخرى.");
+            }
+            for h in hits {
+                println!(
+                    "{:>5.1}  {}:{}  {}",
+                    h.score,
+                    h.func.file,
+                    h.func.line,
+                    h.func.full_name()
+                );
+            }
+            println!("\n⏱ {:?}", start.elapsed());
         }
     }
     Ok(())
