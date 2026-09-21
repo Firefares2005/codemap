@@ -135,12 +135,13 @@ pub fn hybrid_search<'a>(
     let semantic = semantic_search(funcs, doc_vecs, query_vec, pool);
 
     let mut fused: HashMap<*const Function, (f32, &'a Function)> = HashMap::new();
-    for list in [&lexical, &semantic] {
+        // الدلالي أقوى في أسئلة اللغة العادية، فنعطيه وزناً أكبر
+    for (list, weight) in [(&lexical, 0.5_f32), (&semantic, 1.0_f32)] {
         for (rank, h) in list.iter().enumerate() {
             let e = fused
                 .entry(h.func as *const Function)
                 .or_insert((0.0, h.func));
-            e.0 += 1.0 / (K + rank as f32 + 1.0);
+            e.0 += weight / (K + rank as f32 + 1.0);
         }
     }
 

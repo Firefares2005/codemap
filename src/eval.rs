@@ -50,8 +50,9 @@ pub fn run(
         println!();
     }
 
-    let n = CASES.len();
-    println!("\n{:<10} {:>7} {:>7} {:>7}", "mode", "top1", "top3", "top5");
+        let n = CASES.len();
+    println!("\n{} أسئلة", n);
+    println!("{:<10} {:>7} {:>7} {:>7}", "mode", "top1", "top3", "top5");
     for i in 0..3 {
         println!(
             "{:<10} {:>6}% {:>6}% {:>6}%",
