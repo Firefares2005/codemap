@@ -1,4 +1,5 @@
 use crate::extractor::Function;
+use std::collections::HashMap;
 
 pub struct Hit<'a> {
     pub func: &'a Function,
@@ -35,6 +36,7 @@ fn tokenize(s: &str) -> Vec<String> {
     words
 }
 
+/// البحث النصي (بدون ذكاء اصطناعي)
 pub fn search<'a>(funcs: &'a [Function], query: &str, limit: usize) -> Vec<Hit<'a>> {
     let q = tokenize(query);
 
@@ -45,25 +47,32 @@ pub fn search<'a>(funcs: &'a [Function], query: &str, limit: usize) -> Vec<Hit<'
             let owner_words = f.owner.as_deref().map(tokenize).unwrap_or_default();
             let body_lower = f.body.to_lowercase();
             let mut score = 0.0;
+            let mut matched = 0;
 
             for w in &q {
-                // اسم الدالة: الأهم
+                let mut hit = false;
                 if fn_words.iter().any(|n| n == w) {
                     score += 4.0;
-                } else if fn_words.iter().any(|n| n.contains(w.as_str())) {
+                    hit = true;
+                } else if fn_words.iter().any(|n| n.starts_with(w.as_str())) {
                     score += 2.0;
+                    hit = true;
                 }
-                // اسم النوع: أقل أهمية
                 if owner_words.iter().any(|n| n == w) {
-                    score += 1.0;
+                    score += 1.5;
+                    hit = true;
                 }
-                // نص الدالة: الأضعف
                 if body_lower.contains(w.as_str()) {
                     score += 0.5;
                 }
+                if hit {
+                    matched += 1;
+                }
             }
 
-            // عقوبة الدوال العامة المتكررة
+            // مكافأة لمن يغطي أكثر كلمات السؤال
+            score *= 1.0 + 0.5 * matched as f32;
+
             if NOISE.contains(&f.name.as_str()) {
                 score *= 0.3;
             }
@@ -71,6 +80,74 @@ pub fn search<'a>(funcs: &'a [Function], query: &str, limit: usize) -> Vec<Hit<'
         })
         .collect();
 
+    hits.sort_by(|a, b| b.score.total_cmp(&a.score));
+    hits.truncate(limit);
+    hits
+}
+
+fn cosine(a: &[f32], b: &[f32]) -> f32 {
+    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
+    let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if na == 0.0 || nb == 0.0 {
+        0.0
+    } else {
+        dot / (na * nb)
+    }
+}
+
+/// البحث بالمعنى: أقرب الدوال للسؤال في فضاء embeddings
+pub fn semantic_search<'a>(
+    funcs: &'a [Function],
+    doc_vecs: &[Vec<f32>],
+    query_vec: &[f32],
+    limit: usize,
+) -> Vec<Hit<'a>> {
+    let mut hits: Vec<Hit> = funcs
+        .iter()
+        .zip(doc_vecs)
+        .map(|(f, v)| {
+            let mut score = cosine(query_vec, v);
+            if NOISE.contains(&f.name.as_str()) {
+                score *= 0.5;
+            }
+            Hit { func: f, score }
+        })
+        .collect();
+
+    hits.sort_by(|a, b| b.score.total_cmp(&a.score));
+    hits.truncate(limit);
+    hits
+}
+
+/// البحث الهجين: دمج ترتيب النصي والدلالي بطريقة RRF
+pub fn hybrid_search<'a>(
+    funcs: &'a [Function],
+    doc_vecs: &[Vec<f32>],
+    query: &str,
+    query_vec: &[f32],
+    limit: usize,
+) -> Vec<Hit<'a>> {
+    const K: f32 = 60.0;
+    let pool = 50;
+
+    let lexical = search(funcs, query, pool);
+    let semantic = semantic_search(funcs, doc_vecs, query_vec, pool);
+
+    let mut fused: HashMap<*const Function, (f32, &'a Function)> = HashMap::new();
+    for list in [&lexical, &semantic] {
+        for (rank, h) in list.iter().enumerate() {
+            let e = fused
+                .entry(h.func as *const Function)
+                .or_insert((0.0, h.func));
+            e.0 += 1.0 / (K + rank as f32 + 1.0);
+        }
+    }
+
+    let mut hits: Vec<Hit> = fused
+        .into_values()
+        .map(|(score, func)| Hit { func, score })
+        .collect();
     hits.sort_by(|a, b| b.score.total_cmp(&a.score));
     hits.truncate(limit);
     hits

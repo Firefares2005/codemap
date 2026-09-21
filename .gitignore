@@ -1,1 +1,3 @@
 /target
+.codemap/
+.fastembed_cache/
