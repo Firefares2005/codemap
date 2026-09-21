@@ -4,6 +4,8 @@ Local-first semantic code search for Rust projects. Ask a question in plain
 English and get file and line answers. Everything runs on your machine:
 no cloud, no API keys, no code leaves your laptop.
 
+![codemap demo](docs/demo.gif)
+
 ```bash
 codemap ask ./my-project "stop a running task"
 ```
@@ -25,6 +27,24 @@ search cannot bridge that gap; embeddings can.
 | `codemap index <path>` | Pre-build the semantic index |
 | `codemap ask <path> "<question>" [--mode lexical\|semantic\|hybrid]` | Search |
 | `codemap eval <path>` | Benchmark the three search modes |
+
+
+## Use with Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "codemap": {
+      "command": "C:\\path\\to\\codemap.exe",
+      "args": ["serve", "C:\\path\\to\\your\\project"]
+    }
+  }
+}
+```
+
+Then ask: *"Use codemap to find the function in tokio-util that stops all tasks at once, then explain what it does."*
 
 ## How it works
 
@@ -73,5 +93,5 @@ Performance: 619 functions parsed in ~240 ms; first-time embedding takes
 - [x] Doc-comment indexing
 - [x] Evaluation harness
 - [ ] File watcher for incremental updates
-- [ ] MCP server for AI agents
+- [x] MCP server for AI agents
 - [ ] Larger benchmark across several projects
